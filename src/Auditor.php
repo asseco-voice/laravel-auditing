@@ -80,16 +80,18 @@ class Auditor extends Manager implements Contracts\Auditor
             }
         }
 
-        $audit = $driver->audit($model);
-        if (!$audit) {
+        $auditCollection = $driver->audit($model);
+        if ($auditCollection->isEmpty()) {
             return;
         }
 
         $driver->prune($model);
 
-        $this->container->make('events')->dispatch(
-            new Audited($model, $driver, $audit)
-        );
+        foreach ($auditCollection as $audit) {
+            $this->container->make('events')->dispatch(
+                new Audited($model, $driver, $audit)
+            );
+        }
     }
 
     /**

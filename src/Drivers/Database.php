@@ -2,8 +2,10 @@
 
 namespace OwenIt\Auditing\Drivers;
 
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Config;
-use OwenIt\Auditing\Contracts\Audit;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Contracts\AuditDriver;
 
@@ -12,11 +14,17 @@ class Database implements AuditDriver
     /**
      * {@inheritdoc}
      */
-    public function audit(Auditable $model): ?Audit
+    public function audit(Auditable $model): Collection
     {
         $implementation = Config::get('audit.implementation', \OwenIt\Auditing\Models\Audit::class);
 
-        return call_user_func([$implementation, 'create'], $model->toAudit());
+        $data = $model->toAudit();
+
+        $createData = $this->splitDataToCreate($data);
+        $createdIds = $this->createAudits($createData, $implementation);
+
+        /** @var $model Model */
+        return $model->query()->whereIn($model->getKeyName(), $createdIds)->get();
     }
 
     /**
@@ -39,5 +47,65 @@ class Database implements AuditDriver
         }
 
         return false;
+    }
+
+    /**
+     * Take old and new values and split them to be able to
+     * get a single DB entry per attribute.
+     *
+     * @param array $data
+     * @return array
+     */
+    private function splitDataToCreate(array $data): array
+    {
+        \Log::info("Original data: " . print_r($data, true));
+
+        $oldValues = Arr::pull($data, 'old_values');
+        $newValues = Arr::pull($data, 'new_values');
+
+        $createData = [];
+
+        foreach ($oldValues as $attribute => $value) {
+            $createData[] = array_merge([
+                'attribute' => $attribute,
+                'old_value' => $value,
+                'new_value' => Arr::pull($newValues, $attribute),
+            ], $data);
+        }
+
+        foreach ($newValues as $attribute => $value) {
+            $createData[] = array_merge([
+                'attribute' => $attribute,
+                'old_value' => Arr::pull($oldValues, $attribute),
+                'new_value' => $value,
+            ], $data);
+        }
+
+        return $createData;
+    }
+
+    /**
+     * Create audits and return created IDs.
+     *
+     * @param array $createData
+     * @param $implementation
+     * @return array
+     */
+    private function createAudits(array $createData, $implementation): array
+    {
+        \Log::info("To create: " . print_r($createData, true));
+
+        $ids = [];
+
+        foreach ($createData as $create) {
+            /** @var Model $created */
+            $created = call_user_func([$implementation, 'create'], $create);
+
+            if ($created) {
+                $ids[] = $created->getKey();
+            }
+        }
+
+        return $ids;
     }
 }

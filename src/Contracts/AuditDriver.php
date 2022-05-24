@@ -2,6 +2,8 @@
 
 namespace OwenIt\Auditing\Contracts;
 
+use Illuminate\Database\Eloquent\Collection;
+
 interface AuditDriver
 {
     /**
@@ -9,9 +11,9 @@ interface AuditDriver
      *
      * @param \OwenIt\Auditing\Contracts\Auditable $model
      *
-     * @return \OwenIt\Auditing\Contracts\Audit
+     * @return Collection
      */
-    public function audit(Auditable $model): ?Audit;
+    public function audit(Auditable $model): Collection;
 
     /**
      * Remove older audits that go over the threshold.
