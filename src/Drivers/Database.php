@@ -23,8 +23,8 @@ class Database implements AuditDriver
         $createData = $this->splitDataToCreate($data);
         $createdIds = $this->createAudits($createData, $implementation);
 
-        /** @var $model Model */
-        return $model->query()->whereIn($model->getKeyName(), $createdIds)->get();
+        $instance = new $implementation;
+        return $instance->query()->whereIn($instance->getKeyName(), $createdIds)->get();
     }
 
     /**
@@ -58,8 +58,6 @@ class Database implements AuditDriver
      */
     private function splitDataToCreate(array $data): array
     {
-        \Log::info("Original data: " . print_r($data, true));
-
         $oldValues = Arr::pull($data, 'old_values');
         $newValues = Arr::pull($data, 'new_values');
 
@@ -93,8 +91,6 @@ class Database implements AuditDriver
      */
     private function createAudits(array $createData, $implementation): array
     {
-        \Log::info("To create: " . print_r($createData, true));
-
         $ids = [];
 
         foreach ($createData as $create) {
