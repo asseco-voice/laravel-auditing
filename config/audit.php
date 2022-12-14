@@ -80,7 +80,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Have something you always want to exclude by default? - add it here.
-    | Note that this is overwritten (not merged) with local exclude
+    | This will be merged with local excludes for the model
     |
     */
 
