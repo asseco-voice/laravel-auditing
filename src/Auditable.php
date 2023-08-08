@@ -63,7 +63,7 @@ trait Auditable
      */
     public static function bootAuditable()
     {
-        if (!self::$auditingDisabled && static::isAuditingEnabled()) {
+        if (static::isAuditingEnabled()) {
             static::observe(new AuditableObserver());
         }
     }
@@ -103,8 +103,12 @@ trait Auditable
 
         // Exclude Timestamps
         if (!$this->getAuditTimestamps()) {
-            array_push($this->excludedAttributes, $this->getCreatedAtColumn(), $this->getUpdatedAtColumn());
-
+            if ($this->getCreatedAtColumn()) {
+                $this->excludedAttributes[] = $this->getCreatedAtColumn();
+            }
+            if ($this->getUpdatedAtColumn()) {
+                $this->excludedAttributes[] = $this->getUpdatedAtColumn();
+            }
             if (in_array(SoftDeletes::class, class_uses_recursive(get_class($this)))) {
                 $this->excludedAttributes[] = $this->getDeletedAtColumn();
             }
@@ -361,7 +365,7 @@ trait Auditable
 
         if (is_null($userResolver) && Config::has('audit.resolver') && !Config::has('audit.user.resolver')) {
             trigger_error(
-                'The config file audit.php is not updated to the new version 13.0. Please see https://www.laravel-auditing.com/docs/13.0/upgrading',
+                'The config file audit.php is not updated to the new version 13.0. Please see https://laravel-auditing.com/guide/upgrading.html',
                 E_USER_DEPRECATED
             );
             $userResolver = Config::get('audit.resolver.user');
@@ -380,7 +384,7 @@ trait Auditable
         $resolvers = Config::get('audit.resolvers', []);
         if (empty($resolvers) && Config::has('audit.resolver')) {
             trigger_error(
-                'The config file audit.php is not updated to the new version 13.0. Please see https://www.laravel-auditing.com/docs/13.0/upgrading',
+                'The config file audit.php is not updated to the new version 13.0. Please see https://laravel-auditing.com/guide/upgrading.html',
                 E_USER_DEPRECATED
             );
             $resolvers = Config::get('audit.resolver', []);
@@ -590,8 +594,10 @@ trait Auditable
         // The Audit must be for this specific Auditable model
         if ($this->getKey() !== $audit->auditable_id) {
             throw new AuditableTransitionException(sprintf(
-                'Expected Auditable id %s, got %s instead',
+                'Expected Auditable id (%s)%s, got (%s)%s instead',
+                gettype($this->getKey()),
                 $this->getKey(),
+                gettype($audit->auditable_id),
                 $audit->auditable_id
             ));
         }
@@ -652,11 +658,11 @@ trait Auditable
         $this->auditEvent = 'attach';
         $this->isCustomEvent = true;
         $this->auditCustomOld = [
-            $relationName => $this->{$relationName}()->get()->isEmpty() ? [] : $this->{$relationName}()->get()->toArray()
+            $relationName => $this->{$relationName}()->get()->toArray()
         ];
         $this->{$relationName}()->attach($id, $attributes, $touch);
         $this->auditCustomNew = [
-            $relationName => $this->{$relationName}()->get()->isEmpty() ? [] : $this->{$relationName}()->get()->toArray()
+            $relationName => $this->{$relationName}()->get()->toArray()
         ];
         Event::dispatch(AuditCustom::class, [$this]);
         $this->isCustomEvent = false;
@@ -678,11 +684,11 @@ trait Auditable
         $this->auditEvent = 'detach';
         $this->isCustomEvent = true;
         $this->auditCustomOld = [
-            $relationName => $this->{$relationName}()->get()->isEmpty() ? [] : $this->{$relationName}()->get()->toArray()
+            $relationName => $this->{$relationName}()->get()->toArray()
         ];
         $results = $this->{$relationName}()->detach($ids, $touch);
         $this->auditCustomNew = [
-            $relationName => $this->{$relationName}()->get()->isEmpty() ? [] : $this->{$relationName}()->get()->toArray()
+            $relationName => $this->{$relationName}()->get()->toArray()
         ];
         Event::dispatch(AuditCustom::class, [$this]);
         $this->isCustomEvent = false;
@@ -706,7 +712,7 @@ trait Auditable
         $this->auditEvent = 'sync';
 
         $this->auditCustomOld = [
-            $relationName => $this->{$relationName}()->get()->isEmpty() ? [] : $this->{$relationName}()->get()->toArray()
+            $relationName => $this->{$relationName}()->get()->toArray()
         ];
 
         $changes = $this->{$relationName}()->sync($ids, $detaching);
@@ -716,7 +722,7 @@ trait Auditable
             $this->auditCustomNew = [];
         } else {
             $this->auditCustomNew = [
-                $relationName => $this->{$relationName}()->get()->isEmpty() ? [] : $this->{$relationName}()->get()->toArray()
+                $relationName => $this->{$relationName}()->get()->toArray()
             ];
         }
 
